@@ -10,6 +10,9 @@ jobs:
   send-news-email:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: write   # 允許自動 commit（保活用）
+
     steps:
       - name: 取得程式碼
         uses: actions/checkout@v4
@@ -28,3 +31,16 @@ jobs:
           SENDER_PASSWORD: ${{ secrets.SENDER_PASSWORD }}
           RECEIVER_EMAIL:  ${{ secrets.RECEIVER_EMAIL }}
         run: python fetch_news.py
+
+      - name: 自動保活 commit（每月1日執行）
+        if: ${{ github.event.schedule == '0 0 * * *' && startsWith(github.run_id, '') }}
+        run: |
+          DAY=$(date +%d)
+          if [ "$DAY" = "01" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            echo "Keep-alive: $(date '+%Y-%m')" > .keep-alive
+            git add .keep-alive
+            git commit -m "chore: keep-alive $(date '+%Y-%m')" || echo "Nothing to commit"
+            git push
+          fi
